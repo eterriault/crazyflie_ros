@@ -3,7 +3,7 @@
   <arg name="joy_dev" default="/dev/input/js0" />
 
   <arg name="uri1" default="radio://0/40/2M/E7E7E7E701" />
-  <arg name="frame1" default="/crazyflie_unique" />
+  <arg name="frame1" default="/vicon/crazyflie_1/crazyflie_1" />
   <arg name="x1" default="0" />
   <arg name="y1" default="0.0" />
   <arg name="z1" default="0.5" />
