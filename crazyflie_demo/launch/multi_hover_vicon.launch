@@ -2,13 +2,13 @@
 <launch>
   <arg name="joy_dev" default="/dev/input/js0" />
 
-  <arg name="uri1" default="radio://0/40/2M/E7E7E7E701" />
+  <arg name="uri1" default="radio://0/80/2M" />
   <arg name="frame1" default="/vicon/crazyflie_1/crazyflie_1" />
   <arg name="x1" default="0" />
   <arg name="y1" default="0.0" />
   <arg name="z1" default="0.5" />
 
-  <arg name="uri2" default="radio://0/40/2M/E7E7E7E702" />
+  <arg name="uri2" default="radio://0/40/2M" />
   <arg name="frame2" default="efss" />
   <arg name="x2" default="0" />
   <arg name="y2" default="-0.75" />
