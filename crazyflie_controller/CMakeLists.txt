@@ -101,12 +101,18 @@ include_directories(
 add_executable(crazyflie_controller
   src/controller.cpp)
 
+  add_executable(crazyflie_controller2
+  src/controller2.cpp)
+
 # Add cmake target dependencies of the executable/library
 # as an example, message headers may need to be generated before nodes
 # add_dependencies(crazyflie_controller crazyflie_controller_generate_messages_cpp)
 
 # Specify libraries to link a library or executable target against
 target_link_libraries(crazyflie_controller
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(crazyflie_controller2
   ${catkin_LIBRARIES}
 )
 

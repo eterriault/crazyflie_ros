@@ -75,9 +75,10 @@ public:
         m_listener.waitForTransform(m_worldFrame, m_frame, ros::Time(0), ros::Duration(10.0)); 
         m_pubNav = nh.advertise<geometry_msgs::Twist>("cmd_vel", 1);
         m_subscribeGoal = nh.subscribe("goal", 1, &Controller::goalChanged, this);
-        m_subsrcibeLeaderFollower = nh.subscribe("/leaderfollower/cmd_vel", 1, &Controller::lfCallback, this);
+        m_subsrcibeLeaderFollower = nh.subscribe("leaderfollower/cmd_vel", 1, &Controller::lfCallback, this);
         m_serviceTakeoff = nh.advertiseService("takeoff", &Controller::takeoff, this);
         m_serviceLand = nh.advertiseService("land", &Controller::land, this);
+        shouldPublish = true;
     }
 
     void run(double frequency)
@@ -168,7 +169,7 @@ private:
                     m_thrust += 10000 * dt;
                     geometry_msgs::Twist msg;
                     msg.linear.z = m_thrust;
-                   m_pubNav.publish(msg);
+                    if (shouldPublish) m_pubNav.publish(msg);
                 }
 
             }
@@ -181,7 +182,7 @@ private:
                 if (transform.getOrigin().z() <= m_startZ + 0.05) {
                     m_state = Idle;
                     geometry_msgs::Twist msg;
-                    m_pubNav.publish(msg);
+                   if (shouldPublish) m_pubNav.publish(msg);
                 }
             }
             // intentional fall-thru
@@ -209,16 +210,23 @@ private:
                 geometry_msgs::Twist msg;
                msg.linear.x = m_pidX.update(transform.getOrigin().x(), targetDrone.pose.position.x);
                msg.linear.y = m_pidY.update(transform.getOrigin().y(), targetDrone.pose.position.y);
-               // if (!lf_cmd.empty()){
-               //  //Get cmd from leader follower formations
-               //  //take most recent one
-               //  msg = lf_cmd.back();
-               //  lf_cmd.pop_back();
-               // }
+              /* if (!lf_cmd.empty()){
+                //Get cmd from leader follower formations
+                //take most recent one
+                if (lf_cmd.size()==1){
+                    msg = lf_cmd.back();
+                }
+                else if (lf_cmd.size()>1){
+                    msg = lf_cmd.back();                    
+                    lf_cmd.pop_back();
+                }
+               }*/
+               msg.linear.y *= -1;
+
                 msg.linear.z = m_pidZ.update(transform.getOrigin().z(), targetDrone.pose.position.z);
                 msg.angular.z = m_pidYaw.update(0.0, yaw);
                 //msg.angular.z = 0.0;
-                m_pubNav.publish(msg);
+                if (shouldPublish) m_pubNav.publish(msg);
                 ROS_INFO("Current drone: %f, %f, %f", transform.getOrigin().x(), transform.getOrigin().y(), transform.getOrigin().z());
 
                 ROS_INFO("sending cmd_vel: %f, %f, %f", msg.linear.x, msg.linear.y, msg.linear.z);
@@ -310,6 +318,7 @@ private:
     float m_thrust;
     float m_startZ;
     std::vector<geometry_msgs::Twist> lf_cmd;
+    bool shouldPublish;
 };
 
 int main(int argc, char **argv)

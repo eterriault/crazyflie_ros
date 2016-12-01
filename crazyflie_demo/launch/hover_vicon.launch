@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <launch>
-  <arg name="uri" default="radio://0/80/2M" />
-  <arg name="frame" default="/vicon/crazyflie_1/crazyflie_1" />
+  <arg name="uri" default="radio://0/40/2M" />
+  <arg name="frame" default="/crazyflie_unique" />
   <arg name="joy_dev" default="/dev/input/js0" />
   <arg name="x" default="0" />
   <arg name="y" default="0" />
@@ -10,12 +10,14 @@
   <include file="$(find crazyflie_driver)/launch/crazyflie_server.launch">
   </include>
 
-  <group ns="crazyflie">
+  <group ns="crazyflie1">
     <include file="$(find crazyflie_driver)/launch/crazyflie_add.launch">
       <arg name="uri" value="$(arg uri)" />
-      <arg name="tf_prefix" value="crazyflie" />
+      <arg name="tf_prefix" value="crazyflie1" />
       <arg name="enable_logging" value="True" />
     </include>
+
+
 
     <node name="joy" pkg="joy" type="joy_node" output="screen">
       <param name="dev" value="$(arg joy_dev)" />
@@ -25,7 +27,7 @@
       <param name="use_crazyflie_controller" value="True" />
     </node>
 
-    <include file="$(find crazyflie_controller)/launch/crazyflie2.launch">
+    <include file="$(find crazyflie_controller)/launch/crazyflie2-2.launch">
       <arg name="frame" value="$(arg frame)" />
     </include>
 

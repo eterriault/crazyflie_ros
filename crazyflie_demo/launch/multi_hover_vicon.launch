@@ -2,16 +2,16 @@
 <launch>
   <arg name="joy_dev" default="/dev/input/js0" />
 
-  <arg name="uri1" default="radio://0/80/2M" />
-  <arg name="frame1" default="/vicon/crazyflie_1/crazyflie_1" />
+  <arg name="uri1" default="radio://0/40/2M" />
+  <arg name="frame1" default="/vicon/craycray/craycray" />
   <arg name="x1" default="0" />
   <arg name="y1" default="0.0" />
   <arg name="z1" default="0.5" />
 
-  <arg name="uri2" default="radio://0/40/2M" />
-  <arg name="frame2" default="efss" />
+  <arg name="uri2" default="radio://0/80/2M" />
+  <arg name="frame2" default="/crazyflie_unique" />
   <arg name="x2" default="0" />
-  <arg name="y2" default="-0.75" />
+  <arg name="y2" default="-1.0" />
   <arg name="z2" default="0.5" />
 
   <include file="$(find crazyflie_driver)/launch/crazyflie_server.launch">
@@ -60,17 +60,17 @@
       <param name="joy_topic" value="/joy" />
     </node>
 
-    <include file="$(find crazyflie_controller)/launch/crazyflie2.launch">
+    <include file="$(find crazyflie_controller)/launch/crazyflie2-2.launch">
       <arg name="frame" value="$(arg frame2)" />
     </include>
 
-    <!--node name="pose" pkg="crazyflie_demo" type="publish_pose.py" output="screen">
+    <node name="pose" pkg="crazyflie_demo" type="publish_pose.py" output="screen">
       <param name="name" value="goal" />
       <param name="rate" value="10" />
       <param name="x" value="$(arg x2)" />
       <param name="y" value="$(arg y2)" />
       <param name="z" value="$(arg z2)" />
-    </node-->
+    </node>
 
     <node pkg="tf" type="static_transform_publisher" name="baselink_broadcaster" args="0 0 0 0 0 0 1 $(arg frame2) /crazyflie2/base_link 100" />
   </group>
