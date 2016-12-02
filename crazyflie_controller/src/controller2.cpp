@@ -2,8 +2,9 @@
 #include <tf/transform_listener.h>
 #include <std_srvs/Empty.h>
 #include <geometry_msgs/Twist.h>
+#include <vicon_bridge/Markers.h>
 
-//#define PUB
+
 #include "pid.hpp"
 
 double get(
@@ -14,11 +15,11 @@ double get(
     return value;
 }
 
-class Controller
+class Controller2
 {
 public:
 
-    Controller(
+    Controller2(
         const std::string& worldFrame,
         const std::string& frame,
         const ros::NodeHandle& n)
@@ -66,6 +67,7 @@ public:
         , m_goal()
         , m_subscribeGoal()
         , m_subsrcibeLeaderFollower()
+        , m_subscribeMarkers()
         , m_serviceTakeoff()
         , m_serviceLand()
         , m_thrust(0)
@@ -74,17 +76,19 @@ public:
         ros::NodeHandle nh;
         m_listener.waitForTransform(m_worldFrame, m_frame, ros::Time(0), ros::Duration(10.0)); 
         m_pubNav = nh.advertise<geometry_msgs::Twist>("cmd_vel", 1);
-        m_subscribeGoal = nh.subscribe("goal", 1, &Controller::goalChanged, this);
-        m_subsrcibeLeaderFollower = nh.subscribe("leaderfollower/cmd_vel", 1, &Controller::lfCallback, this);
-        m_serviceTakeoff = nh.advertiseService("takeoff", &Controller::takeoff, this);
-        m_serviceLand = nh.advertiseService("land", &Controller::land, this);
-        //shouldPublish = true;
+        m_subscribeGoal = nh.subscribe("goal", 1, &Controller2::goalChanged, this);
+        m_subsrcibeLeaderFollower = nh.subscribe("leaderfollower/cmd_vel", 1, &Controller2::lfCallback, this);
+        m_subscribeMarkers = nh.subscribe("/vicon/markers", 1, &Controller2::markerCallback, this);
+        m_serviceTakeoff = nh.advertiseService("takeoff", &Controller2::takeoff, this);
+        m_serviceLand = nh.advertiseService("land", &Controller2::land, this);
+        shouldPublish = true;
+
     }
 
     void run(double frequency)
     {
         ros::NodeHandle node;
-        ros::Timer timer = node.createTimer(ros::Duration(1.0/frequency), &Controller::iteration, this);
+        ros::Timer timer = node.createTimer(ros::Duration(1.0/frequency), &Controller2::iteration, this);
         ros::spin();
     }
 
@@ -96,14 +100,22 @@ private:
     }
 
     void lfCallback
-    (const geometry_msgs::TwistStamped::ConstPtr& msg)
+    (const geometry_msgs::Twist::ConstPtr& msg)
     {
-        if (msg->twist.linear.x != 0.0 && msg->twist.linear.y != 0.0){
-                    lf_cmd.push_back(*msg);
-         ROS_INFO("Size of cmds: %i", (int) lf_cmd.size());
-        }
-
+        lf_cmd.push_back(*msg);
     }   
+    void markerCallback(const vicon_bridge::Markers::ConstPtr& msg){
+      // ROS_INFO("marker callback with %i markers", msg->markers.size()); 
+        int count = 0;
+    for (int i = 0; i<msg->markers.size(); i++){
+        if (msg->markers[i].marker_name == ""){
+            count++;
+        }
+    }
+     if(count>1){
+        ROS_INFO("MORE THAN ONE MARKER!!");
+          }
+    }
     bool takeoff(
         std_srvs::Empty::Request& req,
         std_srvs::Empty::Response& res)
@@ -172,9 +184,7 @@ private:
                     m_thrust += 10000 * dt;
                     geometry_msgs::Twist msg;
                     msg.linear.z = m_thrust;
-                    #ifdef PUB
-                     m_pubNav.publish(msg);
-                    #endif
+                    if (shouldPublish) m_pubNav.publish(msg);
                 }
 
             }
@@ -187,9 +197,7 @@ private:
                 if (transform.getOrigin().z() <= m_startZ + 0.05) {
                     m_state = Idle;
                     geometry_msgs::Twist msg;
-                    #ifdef PUB
-                     m_pubNav.publish(msg);
-                    #endif
+                    if (shouldPublish) m_pubNav.publish(msg);
                 }
             }
             // intentional fall-thru
@@ -202,8 +210,8 @@ private:
                 targetWorld.header.stamp = transform.stamp_;
                 targetWorld.header.frame_id = m_worldFrame;
                 targetWorld.pose = m_goal.pose;
-                geometry_msgs::PoseStamped targetDrone;// = targetWorld;
-                m_listener.transformPose(m_frame, targetWorld, targetDrone);
+                geometry_msgs::PoseStamped targetDrone = targetWorld;
+                //m_listener.transformPose(m_frame, targetWorld, targetDrone);
 
                 tfScalar roll, pitch, yaw;
                 tf::Matrix3x3(
@@ -215,35 +223,31 @@ private:
                     )).getRPY(roll, pitch, yaw);
 
                 geometry_msgs::Twist msg;
-               //msg.linear.x = m_pidX.update(transform.getOrigin().x(), targetDrone.pose.position.x);
-               //msg.linear.y = m_pidY.update(transform.getOrigin().y(), targetDrone.pose.position.y);
+                msg.linear.x = m_pidX.update(transform.getOrigin().x(), targetDrone.pose.position.x);
+                msg.linear.y = m_pidY.update(transform.getOrigin().y(), targetDrone.pose.position.y);
 
-               if (!lf_cmd.empty()){
-                                ros::Duration duration = lf_cmd.back().header.stamp - ros::Time::now();
-                    ROS_INFO("time difference is %f %f", duration.sec, duration.nsec );
+/*                if (!lf_cmd.empty()){
+                    //Get cmd from leader follower formations
+                    //take most recent one
+                    if (lf_cmd.size()==1){
+                  ROS_INFO("Size is 1, lf_cmd is %f, %f", lf_cmd.back().linear.x, lf_cmd.back().linear.y);
 
-                //Get cmd from leader follower formations
-                //take most recent one
-                if (lf_cmd.size()==1) {
-                    if (true/*(lf_cmd.back().header.stamp - ros::Time::now()).sec < 0.1*/){
-                        msg = lf_cmd.back().twist;
-                        }
+                        msg = lf_cmd.back();
                     }
+                    else if (lf_cmd.size()>1){
+                     ROS_INFO("Size is  bugger than 1, lf_cmd is %f, %f", lf_cmd.back().linear.x, lf_cmd.back().linear.y);
 
-                else if (lf_cmd.size()>1){
-                          msg = lf_cmd.back().twist;                    
-                           lf_cmd.pop_back();
-                      }
-               }
-               //msg.linear.y *= -1;
+                        msg = lf_cmd.back();  
 
+                        lf_cmd.pop_back();
+                    }   
+               }*/
+               msg.linear.x *= (-1);
                 msg.linear.z = m_pidZ.update(transform.getOrigin().z(), targetDrone.pose.position.z);
-                //msg.angular.z = m_pidYaw.update(0.0, yaw);
+                msg.angular.z = m_pidYaw.update(0.0, yaw);
                 //msg.angular.z = 0.0;
-                    #ifdef PUB
-                     m_pubNav.publish(msg);
-                    #endif               
-                     ROS_INFO("Current drone: %f, %f, %f", transform.getOrigin().x(), transform.getOrigin().y(), transform.getOrigin().z());
+                if (shouldPublish) m_pubNav.publish(msg);
+                ROS_INFO("Current drone: %f, %f, %f", transform.getOrigin().x(), transform.getOrigin().y(), transform.getOrigin().z());
 
                 ROS_INFO("sending cmd_vel: %f, %f, %f", msg.linear.x, msg.linear.y, msg.linear.z);
                  //ROS_INFO("Target drone: %f, %f, %f", trans, form.getOrigin().x(), transform.getOrigin().y(), transform.getOrigin().z());
@@ -256,7 +260,7 @@ private:
                 geometry_msgs::Twist msg;
                 m_pubNav.publish(msg);
 
-/*                tf::StampedTransform transform;
+                tf::StampedTransform transform;
                 m_listener.lookupTransform(m_worldFrame, m_frame, ros::Time(0), transform);
 
                 geometry_msgs::PoseStamped targetWorld;
@@ -276,9 +280,9 @@ private:
                     )).getRPY(roll, pitch, yaw);
 
                 ROS_INFO("Current drone: %f, %f, %f", transform.getOrigin().x(), transform.getOrigin().y(), transform.getOrigin().z());
-*/
 
-		/* tf::StampedTransform transform;
+
+        /* tf::StampedTransform transform;
                 m_listener.lookupTransform(m_worldFrame, m_frame, ros::Time(0), transform);
 
                 geometry_msgs::PoseStamped targetWorld;
@@ -297,9 +301,9 @@ private:
                         targetDrone.pose.orientation.z,
                         targetDrone.pose.orientation.w
                     )).getRPY(roll, pitch, yaw);*/
-		//ROS_INFO("Target drone: %f, %f, %f, %f", targetDrone.pose.position.x, targetDrone.pose.position.ys,
-							// targetDrone.pose.position.z, yaw);
-		//sROS_INFO("From markers: %f, %f, %f, %f", 
+        //ROS_INFO("Target drone: %f, %f, %f, %f", targetDrone.pose.position.x, targetDrone.pose.position.ys,
+                            // targetDrone.pose.position.z, yaw);
+        //sROS_INFO("From markers: %f, %f, %f, %f", 
 
             }
             break;
@@ -329,17 +333,19 @@ private:
     geometry_msgs::PoseStamped m_goal;
     ros::Subscriber m_subscribeGoal;
     ros::Subscriber m_subsrcibeLeaderFollower;
+    ros::Subscriber m_subscribeMarkers;
     ros::ServiceServer m_serviceTakeoff;
     ros::ServiceServer m_serviceLand;
     float m_thrust;
     float m_startZ;
-    std::vector<geometry_msgs::TwistStamped> lf_cmd;
-    //bool shouldPublish;
+    std::vector<geometry_msgs::Twist> lf_cmd;
+        bool shouldPublish;
+
 };
 
 int main(int argc, char **argv)
 {
-  ros::init(argc, argv, "controller");
+  ros::init(argc, argv, "Controller2");
 
   // Read parameters
   ros::NodeHandle n("~");
@@ -350,8 +356,8 @@ int main(int argc, char **argv)
   double frequency;
   n.param("frequency", frequency, 50.0);
 
-  Controller controller(worldFrame, frame, n);
-  controller.run(frequency);
+  Controller2 Controller2(worldFrame, frame, n);
+  Controller2.run(frequency);
 
   return 0;
 }
