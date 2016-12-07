@@ -2,8 +2,9 @@
 #include <tf/transform_listener.h>
 #include <std_srvs/Empty.h>
 #include <geometry_msgs/Twist.h>
+#include <algorithm>
 
-//#define PUB
+#define PUB
 #include "pid.hpp"
 
 double get(
@@ -98,10 +99,12 @@ private:
     void lfCallback
     (const geometry_msgs::TwistStamped::ConstPtr& msg)
     {
-        if (msg->twist.linear.x != 0.0 && msg->twist.linear.y != 0.0){
-                    lf_cmd.push_back(*msg);
-         ROS_INFO("Size of cmds: %i", (int) lf_cmd.size());
+        if (abs(msg->twist.linear.x) > 0.001 && abs(msg->twist.linear.y) > 0.001){
+                    //lf_cmd.push_back(*msg);
+                    last_cmd = *msg;
+         ROS_INFO("receiving cmd from LF");
         }
+        else ROS_INFO("not adding 0,0!");
 
     }   
     bool takeoff(
@@ -215,29 +218,36 @@ private:
                     )).getRPY(roll, pitch, yaw);
 
                 geometry_msgs::Twist msg;
-               //msg.linear.x = m_pidX.update(transform.getOrigin().x(), targetDrone.pose.position.x);
-               //msg.linear.y = m_pidY.update(transform.getOrigin().y(), targetDrone.pose.position.y);
+               msg.linear.x = m_pidX.update(transform.getOrigin().x(), targetDrone.pose.position.x);
+               msg.linear.y = m_pidY.update(transform.getOrigin().y(), targetDrone.pose.position.y);
 
-               if (!lf_cmd.empty()){
-                                ros::Duration duration = lf_cmd.back().header.stamp - ros::Time::now();
-                    ROS_INFO("time difference is %f %f", duration.sec, duration.nsec );
+              // if (abs(last_cmd.twist.linear.x) > 0.001 && abs(last_cmd.twist.linear.y) > 0.001){
+                               /* ros::Duration duration = lf_cmd.back().header.stamp - ros::Time::now();
+                    ROS_INFO("time difference is %f %f", duration.sec, duration.nsec );*/
 
                 //Get cmd from leader follower formations
                 //take most recent one
-                if (lf_cmd.size()==1) {
-                    if (true/*(lf_cmd.back().header.stamp - ros::Time::now()).sec < 0.1*/){
-                        msg = lf_cmd.back().twist;
-                        }
-                    }
+               // if (lf_cmd.size()==1) {
+                   //   if (true/*(lf_cmd.back().header.stamp - ros::Time::now()).sec < 0.1*/){
+                        //msg = lf_cmd.back().twist;
+                        //last_cmd = lf_cmd.back();
+                    //msg = last_cmd.twist;
+                     //   }
+                    //}
 
-                else if (lf_cmd.size()>1){
-                          msg = lf_cmd.back().twist;                    
+ /*               else if (lf_cmd.size()>1){
+                          msg = lf_cmd.back().twist; 
+                        last_cmd = lf_cmd.back();
+                   
                            lf_cmd.pop_back();
-                      }
-               }
+                      }*/
+              // }
+               //else {
+              //  msg = last_cmd.twist;
+               //}
                //msg.linear.y *= -1;
 
-                msg.linear.z = m_pidZ.update(transform.getOrigin().z(), targetDrone.pose.position.z);
+                msg.linear.z = m_pidZ.update(transform.getOrigin().z(), targetDrone.pose.position.z) ;
                 //msg.angular.z = m_pidYaw.update(0.0, yaw);
                 //msg.angular.z = 0.0;
                     #ifdef PUB
@@ -334,6 +344,7 @@ private:
     float m_thrust;
     float m_startZ;
     std::vector<geometry_msgs::TwistStamped> lf_cmd;
+    geometry_msgs::TwistStamped last_cmd;
     //bool shouldPublish;
 };
 

@@ -1,19 +1,19 @@
 <?xml version="1.0"?>
 <launch>
-  <arg name="uri" default="radio://0/80/2M" />
+  <arg name="uri" default="radio://0/40/2M" />
   <arg name="frame" default="/vicon/craycray/craycray" />
   <arg name="joy_dev" default="/dev/input/js0" />
   <arg name="x" default="0" />
   <arg name="y" default="0" />
-  <arg name="z" default="0.5" />
+  <arg name="z" default="0.75" />
 
   <include file="$(find crazyflie_driver)/launch/crazyflie_server.launch">
   </include>
 
-  <group ns="crazyflie1">
+  <group ns="crazyflie2">
     <include file="$(find crazyflie_driver)/launch/crazyflie_add.launch">
       <arg name="uri" value="$(arg uri)" />
-      <arg name="tf_prefix" value="crazyflie1" />
+      <arg name="tf_prefix" value="crazyflie2" />
       <arg name="enable_logging" value="True" />
     </include>
 
